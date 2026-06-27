@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../models/subscription.dart';
 import '../providers/providers.dart';
+import '../services/stats_engine.dart';
 import '../theme/glass.dart';
 import 'home_screen.dart';
 import 'subscription_edit_screen.dart';
@@ -86,8 +87,8 @@ class CategoryDetailScreen extends ConsumerWidget {
   }
 
   Widget _subRow(
-      BuildContext context, WidgetRef ref, engine, Subscription s) {
-    final monthly = engine.monthlyEquivalentCny(s);
+      BuildContext context, WidgetRef ref, StatsEngine engine, Subscription s) {
+    final double monthly = engine.monthlyEquivalentCny(s);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,

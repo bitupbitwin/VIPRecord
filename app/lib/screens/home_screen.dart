@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
+import '../models/subscription.dart';
 import '../providers/providers.dart';
+import '../services/stats_engine.dart';
 import '../theme/glass.dart';
 import 'category_detail_screen.dart';
 import 'settings_screen.dart';
@@ -143,7 +145,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   /// 即将到期清单（默认未来 30 天内），与到期提醒联动。
-  Widget _upcomingExpiries(BuildContext context, WidgetRef ref, data) {
+  Widget _upcomingExpiries(BuildContext context, WidgetRef ref, AppData data) {
     final now = DateTime.now();
     final lead = data.settings.reminderLeadDays as int;
     final nameById = {for (final p in data.platforms) p.id: p.name};
@@ -266,9 +268,10 @@ class HomeScreen extends ConsumerWidget {
         ),
       );
 
-  Widget _monthlyChart(engine, subs, int year) {
-    final series = engine.monthlySeries(subs, year);
-    final maxV = (series.isEmpty ? 0 : series.reduce((a, b) => a > b ? a : b));
+  Widget _monthlyChart(StatsEngine engine, List<Subscription> subs, int year) {
+    final List<double> series = engine.monthlySeries(subs, year);
+    final double maxV =
+        series.isEmpty ? 0 : series.reduce((a, b) => a > b ? a : b);
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,7 +326,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Widget _categoryBreakdown(
-      BuildContext context, WidgetRef ref, engine, int year) {
+      BuildContext context, WidgetRef ref, StatsEngine engine, int year) {
     final data = ref.read(appProvider);
     final breakdown = engine.categoryBreakdownForYear(
         data.subscriptions, data.platformToCategory, year);
