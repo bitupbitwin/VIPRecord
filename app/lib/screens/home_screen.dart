@@ -44,47 +44,99 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: [
-            _yearSwitcher(ref, year),
-            const SizedBox(height: 16),
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Windows / 平板等宽屏 -> 双栏仪表盘；手机窄屏 -> 单列。
+            final wide = constraints.maxWidth >= 900;
+
+            final statsRow = Row(
               children: [
                 Expanded(child: _statCard('本月', monthTotal, const Color(0xFF7C9CFF))),
                 const SizedBox(width: 10),
                 Expanded(child: _statCard('本季度', quarterTotal, const Color(0xFF4DD0E1))),
+                if (wide) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: _statCard('全年 $year', yearTotal,
+                          const Color(0xFFF06292), big: true)),
+                ],
               ],
-            ),
-            const SizedBox(height: 10),
-            _statCard('全年 $year', yearTotal, const Color(0xFFF06292), big: true),
-            const SizedBox(height: 18),
-            if (subs.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: GlassCard(
-                  child: Row(
-                    children: [
-                      const Text('🛰️', style: TextStyle(fontSize: 28)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '还没有订阅记录。点开下方任意分类，进入后点「添加订阅」即可记账，统计会实时更新。',
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 13,
-                              height: 1.4),
-                        ),
+            );
+
+            final emptyHint = subs.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(bottom: 18),
+                    child: GlassCard(
+                      child: Row(
+                        children: [
+                          const Text('🛰️', style: TextStyle(fontSize: 28)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '还没有订阅记录。点开下方任意分类，进入后点「添加订阅」即可记账，统计会实时更新。',
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.8),
+                                  fontSize: 13,
+                                  height: 1.4),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  )
+                : const SizedBox.shrink();
+
+            if (wide) {
+              // 左栏：年份 + 统计 + 柱状图 + 即将到期；右栏：分类占比与清单。
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        children: [
+                          _yearSwitcher(ref, year),
+                          const SizedBox(height: 16),
+                          statsRow,
+                          const SizedBox(height: 18),
+                          emptyHint,
+                          _monthlyChart(engine, subs, year),
+                          const SizedBox(height: 18),
+                          _upcomingExpiries(context, ref, data),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      flex: 2,
+                      child: _categoryBreakdown(context, ref, engine, year),
+                    ),
+                  ],
                 ),
-              ),
-            _upcomingExpiries(context, ref, data),
-            _monthlyChart(engine, subs, year),
-            const SizedBox(height: 18),
-            _categoryBreakdown(context, ref, engine, year),
-          ],
+              );
+            }
+
+            // 手机单列。
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                _yearSwitcher(ref, year),
+                const SizedBox(height: 16),
+                statsRow,
+                const SizedBox(height: 10),
+                _statCard('全年 $year', yearTotal, const Color(0xFFF06292),
+                    big: true),
+                const SizedBox(height: 18),
+                emptyHint,
+                _upcomingExpiries(context, ref, data),
+                _monthlyChart(engine, subs, year),
+                const SizedBox(height: 18),
+                _categoryBreakdown(context, ref, engine, year),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -310,17 +362,28 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          const SizedBox(height: 12),
-          // 分类列表，点击进入详情
+          const SizedBox(height: 4),
+          const Text('点击分类可管理/配置其中的每个 App',
+              style: TextStyle(color: Colors.white38, fontSize: 12)),
+          const SizedBox(height: 4),
+          // 分类列表，点击进入详情可配置每个 App
           for (final c in cats)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Text(c.emoji, style: const TextStyle(fontSize: 22)),
               title: Text(c.name,
                   style: const TextStyle(color: Colors.white, fontSize: 15)),
-              trailing: Text(
-                HomeScreen._money.format(breakdown[c.id] ?? 0),
-                style: TextStyle(color: Color(c.colorValue), fontSize: 14),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    HomeScreen._money.format(breakdown[c.id] ?? 0),
+                    style: TextStyle(color: Color(c.colorValue), fontSize: 14),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right,
+                      color: Colors.white38, size: 20),
+                ],
               ),
               onTap: () => Navigator.push(
                 context,
