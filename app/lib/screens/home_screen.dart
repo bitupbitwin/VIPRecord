@@ -135,7 +135,7 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 18),
                 emptyHint,
                 _upcomingExpiries(context, ref, data),
-                _monthlyChart(engine, subs, year),
+                _monthlyChart(ref, engine, subs, year),
                 const SizedBox(height: 18),
                 _categoryBreakdown(context, ref, engine, year),
               ],
