@@ -11,6 +11,7 @@ pubspec.lock
 # 例外：跟踪 android 的 app 级 build.gradle.kts（含 desugaring 配置），方便多机同步
 android/*
 !android/app/
+!android/gradle.properties
 android/app/*
 !android/app/build.gradle.kts
 ios/
