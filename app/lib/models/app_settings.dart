@@ -6,6 +6,8 @@ class AppSettings {
     this.supabaseAnonKey = '',
     this.syncEnabled = false,
     this.amortized = true, // true=平摊视图（默认），false=实付视图
+    this.reminderEnabled = true,
+    this.reminderLeadDays = 3, // 到期前几天提醒
   });
 
   /// 1 USD = usdToCny CNY（双框联动 & 统计折算）。
@@ -17,6 +19,8 @@ class AppSettings {
   bool syncEnabled;
 
   bool amortized;
+  bool reminderEnabled;
+  int reminderLeadDays;
 
   Map<String, dynamic> toJson() => {
         'usdToCny': usdToCny,
@@ -24,6 +28,8 @@ class AppSettings {
         'supabaseAnonKey': supabaseAnonKey,
         'syncEnabled': syncEnabled,
         'amortized': amortized,
+        'reminderEnabled': reminderEnabled,
+        'reminderLeadDays': reminderLeadDays,
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> j) => AppSettings(
@@ -32,5 +38,7 @@ class AppSettings {
         supabaseAnonKey: (j['supabaseAnonKey'] ?? '') as String,
         syncEnabled: (j['syncEnabled'] ?? false) as bool,
         amortized: (j['amortized'] ?? true) as bool,
+        reminderEnabled: (j['reminderEnabled'] ?? true) as bool,
+        reminderLeadDays: (j['reminderLeadDays'] as num?)?.toInt() ?? 3,
       );
 }

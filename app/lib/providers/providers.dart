@@ -6,12 +6,15 @@ import '../models/category.dart';
 import '../models/platform.dart';
 import '../models/subscription.dart';
 import '../services/currency_service.dart';
+import '../services/notification_service.dart';
 import '../services/stats_engine.dart';
 import '../services/sync_service.dart';
 
 /// 由 main() 注入（override）的单例。
 final localStoreProvider = Provider<LocalStore>((ref) => throw UnimplementedError());
 final syncServiceProvider = Provider<SyncService>((ref) => SyncService());
+final notificationServiceProvider =
+    Provider<NotificationService>((ref) => NotificationService());
 
 /// 内存中的全量数据 + 设置。改动后通知 UI，实现统计实时刷新。
 class AppData {
@@ -47,6 +50,7 @@ class AppData {
 class AppNotifier extends Notifier<AppData> {
   LocalStore get _store => ref.read(localStoreProvider);
   SyncService get _sync => ref.read(syncServiceProvider);
+  NotificationService get _notif => ref.read(notificationServiceProvider);
 
   @override
   AppData build() => AppData(
@@ -56,12 +60,21 @@ class AppNotifier extends Notifier<AppData> {
         settings: _store.settings(),
       );
 
+  /// 按当前订阅与设置重排到期提醒。
+  Future<void> rescheduleReminders() => _notif.rescheduleAll(
+        subs: state.subscriptions,
+        platforms: state.platforms,
+        enabled: state.settings.reminderEnabled,
+        leadDays: state.settings.reminderLeadDays,
+      );
+
   // ---- 订阅记录 ----
   Future<void> upsertSubscription(Subscription s) async {
     await _store.putSubscription(s);
     await _sync.pushSubscription(s);
     final list = [...state.subscriptions.where((e) => e.id != s.id), s];
     state = state.copyWith(subscriptions: list);
+    await rescheduleReminders();
   }
 
   Future<void> deleteSubscription(Subscription s) async {
@@ -71,6 +84,7 @@ class AppNotifier extends Notifier<AppData> {
     state = state.copyWith(
       subscriptions: state.subscriptions.where((e) => e.id != s.id).toList(),
     );
+    await rescheduleReminders();
   }
 
   // ---- 平台 ----
@@ -94,6 +108,7 @@ class AppNotifier extends Notifier<AppData> {
   Future<void> updateSettings(AppSettings s) async {
     await _store.saveSettings(s);
     state = state.copyWith(settings: s);
+    await rescheduleReminders();
   }
 }
 

@@ -59,9 +59,89 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 10),
             _statCard('全年 $year', yearTotal, const Color(0xFFF06292), big: true),
             const SizedBox(height: 18),
+            if (subs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: GlassCard(
+                  child: Row(
+                    children: [
+                      const Text('🛰️', style: TextStyle(fontSize: 28)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '还没有订阅记录。点开下方任意分类，进入后点「添加订阅」即可记账，统计会实时更新。',
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 13,
+                              height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            _upcomingExpiries(context, ref, data),
             _monthlyChart(engine, subs, year),
             const SizedBox(height: 18),
             _categoryBreakdown(context, ref, engine, year),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 即将到期清单（默认未来 30 天内），与到期提醒联动。
+  Widget _upcomingExpiries(BuildContext context, WidgetRef ref, data) {
+    final now = DateTime.now();
+    final lead = data.settings.reminderLeadDays as int;
+    final nameById = {for (final p in data.platforms) p.id: p.name};
+    final emojiById = {for (final p in data.platforms) p.id: p.emoji};
+    final upcoming = [
+      for (final s in data.subscriptions)
+        if (!s.endDate.isBefore(now) &&
+            s.endDate.difference(now).inDays <= 30)
+          s
+    ]..sort((a, b) => a.endDate.compareTo(b.endDate));
+    if (upcoming.isEmpty) return const SizedBox.shrink();
+
+    final df = DateFormat('MM/dd');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.notifications_active_outlined,
+                    color: Color(0xFFFFD54F), size: 18),
+                SizedBox(width: 8),
+                Text('即将到期',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            for (final s in upcoming.take(6))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Text(emojiById[s.platformId] ?? '🔹'),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(nameById[s.platformId] ?? '订阅',
+                          style: const TextStyle(color: Colors.white)),
+                    ),
+                    Text('${df.format(s.endDate)} 到期',
+                        style: TextStyle(
+                            color: s.endDate.difference(now).inDays <= lead
+                                ? const Color(0xFFFF8A65)
+                                : Colors.white60,
+                            fontSize: 13)),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -98,13 +178,38 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: color.withOpacity(0.6), blurRadius: 8),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(label,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
+              ],
+            ),
             const SizedBox(height: 8),
-            Text(_money.format(value),
+            // 数值变化时平滑滚动到新值（实时统计的动画反馈）。
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+              tween: Tween(begin: 0, end: value),
+              builder: (_, v, __) => Text(
+                _money.format(v),
                 style: TextStyle(
                     color: color,
                     fontSize: big ? 36 : 24,
-                    fontWeight: FontWeight.bold)),
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
       );

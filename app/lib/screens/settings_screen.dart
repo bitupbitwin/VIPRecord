@@ -16,6 +16,8 @@ class _SettingsState extends ConsumerState<SettingsScreen> {
   late final TextEditingController _url;
   late final TextEditingController _key;
   bool _sync = false;
+  bool _reminder = true;
+  int _leadDays = 3;
 
   @override
   void initState() {
@@ -25,6 +27,15 @@ class _SettingsState extends ConsumerState<SettingsScreen> {
     _url = TextEditingController(text: s.supabaseUrl);
     _key = TextEditingController(text: s.supabaseAnonKey);
     _sync = s.syncEnabled;
+    _reminder = s.reminderEnabled;
+    _leadDays = s.reminderLeadDays;
+  }
+
+  void _saveReminder() {
+    final s = ref.read(appProvider).settings;
+    s.reminderEnabled = _reminder;
+    s.reminderLeadDays = _leadDays;
+    ref.read(appProvider.notifier).updateSettings(s);
   }
 
   void _saveRate() {
@@ -85,6 +96,51 @@ class _SettingsState extends ConsumerState<SettingsScreen> {
                       style: const TextStyle(color: Colors.white),
                       decoration: _dec('1 USD = ? CNY'),
                       onChanged: (_) => _saveRate(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('到期提醒',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16)),
+                    const SizedBox(height: 4),
+                    const Text('在订阅期结束前若干天发本地通知，提醒确认续费',
+                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('启用到期提醒',
+                          style: TextStyle(color: Colors.white)),
+                      value: _reminder,
+                      onChanged: (v) {
+                        setState(() => _reminder = v);
+                        _saveReminder();
+                      },
+                    ),
+                    Row(
+                      children: [
+                        const Text('提前天数',
+                            style: TextStyle(color: Colors.white70)),
+                        const Spacer(),
+                        for (final d in [1, 3, 7, 14])
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: ChoiceChip(
+                              label: Text('$d 天'),
+                              selected: _leadDays == d,
+                              onSelected: (_) {
+                                setState(() => _leadDays = d);
+                                _saveReminder();
+                              },
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),

@@ -19,6 +19,9 @@ dependencies:
   uuid: ^4.4.0
   supabase_flutter: ^2.5.6      # 云同步（HTTP，全平台含桌面/网页）
   shared_preferences: ^2.2.3
+  flutter_local_notifications: ^17.2.2  # 到期本地提醒
+  timezone: ^0.9.4                      # 定时通知所需时区
+  flutter_timezone: ^3.0.1              # 获取设备本地时区
 
 dev_dependencies:
   flutter_lints: ^4.0.0
