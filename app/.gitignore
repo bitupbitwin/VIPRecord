@@ -8,7 +8,11 @@ pubspec.lock
 *.iml
 
 # Generated platform folders (run `flutter create .` to regenerate)
-android/
+# 例外：跟踪 android 的 app 级 build.gradle.kts（含 desugaring 配置），方便多机同步
+android/*
+!android/app/
+android/app/*
+!android/app/build.gradle.kts
 ios/
 linux/
 macos/
