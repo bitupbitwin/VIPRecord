@@ -11,6 +11,8 @@ import 'category_detail_screen.dart';
 import 'settings_screen.dart';
 
 final selectedYearProvider = StateProvider<int>((_) => DateTime.now().year);
+// 柱状图中被选中查看的月份（默认当前月），点击柱子可切换查看任意月金额。
+final selectedMonthProvider = StateProvider<int>((_) => DateTime.now().month);
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -25,10 +27,10 @@ class HomeScreen extends ConsumerWidget {
     final now = DateTime.now();
     final subs = data.subscriptions;
 
-    final monthTotal =
-        engine.totalForMonth(subs, year, year == now.year ? now.month : 1);
-    final quarterTotal = engine.totalForQuarter(
-        subs, year, year == now.year ? ((now.month - 1) ~/ 3) + 1 : 1);
+    final curMonth = now.month;
+    final curQuarter = ((now.month - 1) ~/ 3) + 1;
+    final monthTotal = engine.totalForMonth(subs, year, curMonth);
+    final quarterTotal = engine.totalForQuarter(subs, year, curQuarter);
     final yearTotal = engine.totalForYear(subs, year);
 
     return Scaffold(
@@ -53,9 +55,9 @@ class HomeScreen extends ConsumerWidget {
 
             final statsRow = Row(
               children: [
-                Expanded(child: _statCard('本月', monthTotal, const Color(0xFF7C9CFF))),
+                Expanded(child: _statCard('本月 · $curMonth月', monthTotal, const Color(0xFF7C9CFF))),
                 const SizedBox(width: 10),
-                Expanded(child: _statCard('本季度', quarterTotal, const Color(0xFF4DD0E1))),
+                Expanded(child: _statCard('本季度 · Q$curQuarter', quarterTotal, const Color(0xFF4DD0E1))),
                 if (wide) ...[
                   const SizedBox(width: 10),
                   Expanded(
@@ -104,7 +106,7 @@ class HomeScreen extends ConsumerWidget {
                           statsRow,
                           const SizedBox(height: 18),
                           emptyHint,
-                          _monthlyChart(engine, subs, year),
+                          _monthlyChart(ref, engine, subs, year),
                           const SizedBox(height: 18),
                           _upcomingExpiries(context, ref, data),
                         ],
@@ -268,17 +270,48 @@ class HomeScreen extends ConsumerWidget {
         ),
       );
 
-  Widget _monthlyChart(StatsEngine engine, List<Subscription> subs, int year) {
+  Widget _monthlyChart(
+      WidgetRef ref, StatsEngine engine, List<Subscription> subs, int year) {
     final List<double> series = engine.monthlySeries(subs, year);
     final double maxV =
         series.isEmpty ? 0 : series.reduce((a, b) => a > b ? a : b);
+    final sel = ref.watch(selectedMonthProvider); // 1..12
+    final double selTotal = series[sel - 1];
+
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('每月支出（平摊视图）',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Flexible(
+                child: Text('每月支出（平摊视图）',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w600)),
+              ),
+              // 选中月份的金额（点柱子切换）
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C9CFF).withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: const Color(0xFF7C9CFF).withOpacity(0.5)),
+                ),
+                child: Text('$sel月 · ${HomeScreen._money.format(selTotal)}',
+                    style: const TextStyle(
+                        color: Color(0xFFBFD0FF),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text('点柱子可查看该月金额',
+              style: TextStyle(color: Colors.white38, fontSize: 11)),
+          const SizedBox(height: 12),
           SizedBox(
             height: 160,
             child: BarChart(
@@ -286,6 +319,25 @@ class HomeScreen extends ConsumerWidget {
                 maxY: maxV == 0 ? 10 : maxV * 1.2,
                 borderData: FlBorderData(show: false),
                 gridData: const FlGridData(show: false),
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipItem: (group, _, rod, __) => BarTooltipItem(
+                      '${group.x + 1}月\n${HomeScreen._money.format(rod.toY)}',
+                      const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  touchCallback: (event, resp) {
+                    final spot = resp?.spot;
+                    if (spot != null) {
+                      ref.read(selectedMonthProvider.notifier).state =
+                          spot.touchedBarGroupIndex + 1;
+                    }
+                  },
+                ),
                 titlesData: FlTitlesData(
                   leftTitles: const AxisTitles(
                       sideTitles: SideTitles(showTitles: false)),
@@ -309,10 +361,13 @@ class HomeScreen extends ConsumerWidget {
                         toY: series[i],
                         width: 12,
                         borderRadius: BorderRadius.circular(4),
-                        gradient: const LinearGradient(
+                        // 选中的月份高亮（更亮/暖色），其余用主色渐变。
+                        gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
-                          colors: [Color(0xFF7C9CFF), Color(0xFF4DD0E1)],
+                          colors: i == sel - 1
+                              ? const [Color(0xFFFFB36B), Color(0xFFF06292)]
+                              : const [Color(0xFF7C9CFF), Color(0xFF4DD0E1)],
                         ),
                       ),
                     ]),
@@ -373,7 +428,7 @@ class HomeScreen extends ConsumerWidget {
           for (final c in cats)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Text(c.emoji, style: const TextStyle(fontSize: 22)),
+              // 分类名本身已含 emoji，不再额外加前置图标，避免重复显示两个。
               title: Text(c.name,
                   style: const TextStyle(color: Colors.white, fontSize: 15)),
               trailing: Row(
