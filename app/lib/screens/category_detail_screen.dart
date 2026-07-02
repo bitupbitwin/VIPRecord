@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -21,7 +22,19 @@ class CategoryDetailScreen extends ConsumerWidget {
     final data = ref.watch(appProvider);
     final engine = ref.watch(statsEngineProvider);
     final year = ref.watch(selectedYearProvider);
-    final cat = data.categories.firstWhere((c) => c.id == categoryId);
+    // 分类可能被（其它设备/后续版本）删除，安全兜底避免崩溃。
+    final cat = data.categories.firstWhereOrNull((c) => c.id == categoryId);
+    if (cat == null) {
+      return const GlassBackground(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Center(
+            child: Text('该分类不存在或已被删除',
+                style: TextStyle(color: Colors.white70)),
+          ),
+        ),
+      );
+    }
     final platforms =
         data.platforms.where((p) => p.categoryId == categoryId).toList();
 

@@ -14,6 +14,11 @@ android/*
 !android/gradle.properties
 android/app/*
 !android/app/build.gradle.kts
+!android/app/src/
+android/app/src/*
+!android/app/src/main/
+android/app/src/main/*
+!android/app/src/main/AndroidManifest.xml
 ios/
 linux/
 macos/

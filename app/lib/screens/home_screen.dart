@@ -29,6 +29,10 @@ class HomeScreen extends ConsumerWidget {
 
     final curMonth = now.month;
     final curQuarter = ((now.month - 1) ~/ 3) + 1;
+    final isThisYear = year == now.year;
+    // 查看往年时不再叫「本月/本季度」，避免误解为当前月。
+    final monthLabel = isThisYear ? '本月 · $curMonth月' : '$year年$curMonth月';
+    final quarterLabel = isThisYear ? '本季度 · Q$curQuarter' : '$year年Q$curQuarter';
     final monthTotal = engine.totalForMonth(subs, year, curMonth);
     final quarterTotal = engine.totalForQuarter(subs, year, curQuarter);
     final yearTotal = engine.totalForYear(subs, year);
@@ -55,9 +59,9 @@ class HomeScreen extends ConsumerWidget {
 
             final statsRow = Row(
               children: [
-                Expanded(child: _statCard('本月 · $curMonth月', monthTotal, const Color(0xFF7C9CFF))),
+                Expanded(child: _statCard(monthLabel, monthTotal, const Color(0xFF7C9CFF))),
                 const SizedBox(width: 10),
-                Expanded(child: _statCard('本季度 · Q$curQuarter', quarterTotal, const Color(0xFF4DD0E1))),
+                Expanded(child: _statCard(quarterLabel, quarterTotal, const Color(0xFF4DD0E1))),
                 if (wide) ...[
                   const SizedBox(width: 10),
                   Expanded(
@@ -149,13 +153,15 @@ class HomeScreen extends ConsumerWidget {
   /// 即将到期清单（默认未来 30 天内），与到期提醒联动。
   Widget _upcomingExpiries(BuildContext context, WidgetRef ref, AppData data) {
     final now = DateTime.now();
-    final lead = data.settings.reminderLeadDays as int;
+    // 按「日」比较，今天到期的也要显示（endDate 存的是当天 00:00）。
+    final today = DateTime(now.year, now.month, now.day);
+    final lead = data.settings.reminderLeadDays;
     final nameById = {for (final p in data.platforms) p.id: p.name};
     final emojiById = {for (final p in data.platforms) p.id: p.emoji};
     final upcoming = [
       for (final s in data.subscriptions)
-        if (!s.endDate.isBefore(now) &&
-            s.endDate.difference(now).inDays <= 30)
+        if (!s.endDate.isBefore(today) &&
+            s.endDate.difference(today).inDays <= 30)
           s
     ]..sort((a, b) => a.endDate.compareTo(b.endDate));
     if (upcoming.isEmpty) return const SizedBox.shrink();
@@ -191,7 +197,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     Text('${df.format(s.endDate)} 到期',
                         style: TextStyle(
-                            color: s.endDate.difference(now).inDays <= lead
+                            color: s.endDate.difference(today).inDays <= lead
                                 ? const Color(0xFFFF8A65)
                                 : Colors.white60,
                             fontSize: 13)),

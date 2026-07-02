@@ -46,7 +46,8 @@ class _CurrencyDualInputState extends State<CurrencyDualInput> {
 
   void _onCny(String text) {
     if (_syncing) return;
-    _source = Currency.cny;
+    // setState 让「主框」高亮跟随最后编辑的输入框切换。
+    setState(() => _source = Currency.cny);
     final cny = double.tryParse(text) ?? 0;
     _syncing = true;
     _usd.text = _fmt(widget.converter.cnyToUsd(cny));
@@ -56,7 +57,7 @@ class _CurrencyDualInputState extends State<CurrencyDualInput> {
 
   void _onUsd(String text) {
     if (_syncing) return;
-    _source = Currency.usd;
+    setState(() => _source = Currency.usd);
     final usd = double.tryParse(text) ?? 0;
     _syncing = true;
     _cny.text = _fmt(widget.converter.usdToCnyAmount(usd));

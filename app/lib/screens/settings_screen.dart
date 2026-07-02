@@ -35,7 +35,7 @@ class _SettingsState extends ConsumerState<SettingsScreen> {
     final s = ref.read(appProvider).settings;
     s.reminderEnabled = _reminder;
     s.reminderLeadDays = _leadDays;
-    ref.read(appProvider.notifier).updateSettings(s);
+    ref.read(appProvider.notifier).updateSettings(s, remindersChanged: true);
   }
 
   void _saveRate() {

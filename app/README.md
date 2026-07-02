@@ -118,7 +118,9 @@ create table subscriptions (
 );
 ```
 
-> 当前为本地优先 + upsert 推送 + 启动拉取合并（last-write-wins）。字段级冲突合并与多用户 Auth 隔离为后续里程碑。
+> 同步机制：启动时双向同步（拉取远端 → 按 updatedAt last-write-wins 合并进本地 → 全量回推），
+> 平时的增删改即时后台上传、不阻塞界面。字段级冲突合并与多用户 Auth 隔离为后续里程碑。
+> ⚠️ 安全：默认建表未开 RLS，请勿泄露 anon key；加固方式见《安装说明书》第六节。
 
 ---
 

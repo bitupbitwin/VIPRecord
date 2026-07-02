@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/local_store.dart';
@@ -43,9 +44,20 @@ class _SubOrbitAppState extends ConsumerState<SubOrbitApp> {
   @override
   void initState() {
     super.initState();
-    // 启动后按现有订阅重排到期提醒。
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(appProvider.notifier).rescheduleReminders();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final notifier = ref.read(appProvider.notifier);
+      // 启动后按现有订阅重排到期提醒。
+      await notifier.rescheduleReminders();
+
+      // 后台执行云端双向同步（拉取->合并->回推），不阻塞启动；
+      // 若合并进了远端更新，刷新内存状态并重排提醒。
+      final sync = ref.read(syncServiceProvider);
+      final store = ref.read(localStoreProvider);
+      final changed = await sync.fullSync(store);
+      if (changed && mounted) {
+        notifier.reloadFromStore();
+        await notifier.rescheduleReminders();
+      }
     });
   }
 
@@ -55,6 +67,14 @@ class _SubOrbitAppState extends ConsumerState<SubOrbitApp> {
       title: '订阅星轨 SubOrbit',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark(),
+      // 中文本地化：日期选择器等系统组件显示中文。
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('zh'), Locale('en')],
+      locale: const Locale('zh'),
       home: const GlassBackground(child: HomeScreen()),
     );
   }

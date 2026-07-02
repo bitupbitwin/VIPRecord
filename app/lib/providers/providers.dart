@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local_store.dart';
@@ -68,47 +70,61 @@ class AppNotifier extends Notifier<AppData> {
         leadDays: state.settings.reminderLeadDays,
       );
 
+  /// 从本地库重新加载全部数据（云同步合并完成后调用）。
+  void reloadFromStore() {
+    state = AppData(
+      categories: _store.categories(),
+      platforms: _store.platforms(),
+      subscriptions: _store.subscriptions(),
+      settings: _store.settings(),
+    );
+  }
+
   // ---- 订阅记录 ----
+  // 写本地 -> 立即更新状态(统计实时刷新) -> 云端推送放后台，不阻塞 UI。
   Future<void> upsertSubscription(Subscription s) async {
     await _store.putSubscription(s);
-    await _sync.pushSubscription(s);
     final list = [...state.subscriptions.where((e) => e.id != s.id), s];
     state = state.copyWith(subscriptions: list);
+    unawaited(_sync.pushSubscription(s));
     await rescheduleReminders();
   }
 
   Future<void> deleteSubscription(Subscription s) async {
     final removed = s.copyWith(deleted: true);
     await _store.putSubscription(removed);
-    await _sync.pushSubscription(removed);
     state = state.copyWith(
       subscriptions: state.subscriptions.where((e) => e.id != s.id).toList(),
     );
+    unawaited(_sync.pushSubscription(removed));
     await rescheduleReminders();
   }
 
   // ---- 平台 ----
   Future<void> upsertPlatform(Platform p) async {
     await _store.putPlatform(p);
-    await _sync.pushPlatform(p);
     final list = [...state.platforms.where((e) => e.id != p.id), p];
     state = state.copyWith(platforms: list);
+    unawaited(_sync.pushPlatform(p));
   }
 
   // ---- 分类 ----
   Future<void> upsertCategory(Category c) async {
     await _store.putCategory(c);
-    await _sync.pushCategory(c);
     final list = [...state.categories.where((e) => e.id != c.id), c]
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     state = state.copyWith(categories: list);
+    unawaited(_sync.pushCategory(c));
   }
 
   // ---- 设置（含汇率，改动后统计随之刷新）----
-  Future<void> updateSettings(AppSettings s) async {
+  /// [remindersChanged]：仅当到期提醒相关设置变化时才重排通知，
+  /// 避免每敲一个汇率数字就全量取消/重排。
+  Future<void> updateSettings(AppSettings s,
+      {bool remindersChanged = false}) async {
     await _store.saveSettings(s);
     state = state.copyWith(settings: s);
-    await rescheduleReminders();
+    if (remindersChanged) await rescheduleReminders();
   }
 }
 

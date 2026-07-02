@@ -65,8 +65,23 @@ class _EditState extends ConsumerState<SubscriptionEditScreen> {
     }
   }
 
+  void _warn(String msg) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: const Color(0xFFB3541E)),
+      );
+
   void _save() {
-    if (_platformId.isEmpty) return;
+    if (_platformId.isEmpty) {
+      _warn('请先选择平台');
+      return;
+    }
+    if (_amount <= 0) {
+      _warn('请填写大于 0 的金额');
+      return;
+    }
+    if (_end.isBefore(_start)) {
+      _warn('结束日期不能早于开始日期');
+      return;
+    }
     final id = widget.existing?.id ?? const Uuid().v4();
     final sub = Subscription(
       id: id,
@@ -77,6 +92,7 @@ class _EditState extends ConsumerState<SubscriptionEditScreen> {
       startDate: _start,
       endDate: _end,
       autoRenew: _autoRenew,
+      notes: widget.existing?.notes ?? '', // 编辑时保留原备注
     );
     ref.read(appProvider.notifier).upsertSubscription(sub);
     Navigator.pop(context);

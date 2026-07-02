@@ -74,6 +74,53 @@ class LocalStore {
   Future<void> saveSettings(AppSettings s) async =>
       _meta.put('settings', jsonEncode(s.toJson()));
 
+  // ---- 云同步：全量导出与远端合并 ----
+
+  List<Map<String, dynamic>> _dump(Box<String> box) => box.values
+      .map((s) => jsonDecode(s) as Map<String, dynamic>)
+      .toList();
+
+  /// 含软删除记录的全量数据（用于回推云端）。
+  List<Map<String, dynamic>> dumpCategories() => _dump(_categories);
+  List<Map<String, dynamic>> dumpPlatforms() => _dump(_platforms);
+  List<Map<String, dynamic>> dumpSubscriptions() => _dump(_subscriptions);
+
+  /// 把远端记录按 updatedAt last-write-wins 合并进本地。
+  /// 返回是否有任何本地记录被更新（true 则应刷新内存状态）。
+  bool mergeRemote({
+    required List<Map<String, dynamic>> categories,
+    required List<Map<String, dynamic>> platforms,
+    required List<Map<String, dynamic>> subscriptions,
+  }) {
+    var changed = false;
+    for (final r in categories) {
+      changed = _mergeInto(_categories, r) || changed;
+    }
+    for (final r in platforms) {
+      changed = _mergeInto(_platforms, r) || changed;
+    }
+    for (final r in subscriptions) {
+      changed = _mergeInto(_subscriptions, r) || changed;
+    }
+    return changed;
+  }
+
+  bool _mergeInto(Box<String> box, Map<String, dynamic> remote) {
+    final id = remote['id'] as String?;
+    if (id == null) return false;
+    final localRaw = box.get(id);
+    if (localRaw != null) {
+      final local = jsonDecode(localRaw) as Map<String, dynamic>;
+      final lu = DateTime.tryParse(local['updatedAt']?.toString() ?? '') ??
+          DateTime(2000);
+      final ru = DateTime.tryParse(remote['updatedAt']?.toString() ?? '') ??
+          DateTime(2000);
+      if (!ru.isAfter(lu)) return false; // 本地较新或相同，保留本地
+    }
+    box.put(id, jsonEncode(remote));
+    return true;
+  }
+
   // ---- 导出 / 导入（备份兜底）----
   String exportJson() => jsonEncode({
         'categories': _categories.values.toList(),
